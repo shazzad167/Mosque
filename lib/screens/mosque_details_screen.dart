@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../models/mosque.dart';
 import 'set_prayer_time_screen.dart';
 
 class MosqueDetailsScreen extends StatefulWidget {
-  final String osmId;
-  final String mosqueName;
-  final bool isAdmin;
+  final Mosque mosque;
+  final bool isAuthorized;
 
   const MosqueDetailsScreen({
     super.key,
-    required this.osmId,
-    required this.mosqueName,
-    this.isAdmin = false,
+    required this.mosque,
+    required this.isAuthorized,
   });
 
   @override
@@ -19,7 +19,9 @@ class MosqueDetailsScreen extends StatefulWidget {
 }
 
 class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
-  Map<String, String> prayerTimes = {
+  bool loading = true;
+
+  final Map<String, String> prayerTimes = {
     'Fajr': 'N/A',
     'Dhuhr': 'N/A',
     'Asr': 'N/A',
@@ -27,19 +29,20 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
     'Isha': 'N/A',
   };
 
-  bool loading = true;
-
   @override
   void initState() {
     super.initState();
     _loadPrayerTimes();
   }
 
+  // ---------------- LOAD PRAYER TIMES ----------------
+
   Future<void> _loadPrayerTimes() async {
     setState(() => loading = true);
+
     final doc = await FirebaseFirestore.instance
         .collection('mosque')
-        .doc(widget.osmId)
+        .doc(widget.mosque.osmId)
         .get();
 
     if (doc.exists) {
@@ -55,20 +58,24 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
     setState(() => loading = false);
   }
 
-  Widget _prayerRow(String name) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(name), Text(prayerTimes[name] ?? 'N/A')],
-      ),
-    );
+  // ---------------- DISTANCE FORMAT ----------------
+
+  String _formatDistance(double? meters) {
+    if (meters == null) return 'Nearby';
+
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} m';
+    } else {
+      return '${(meters / 1000).toStringAsFixed(2)} km';
+    }
   }
+
+  // ---------------- UI ----------------
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.mosqueName)),
+      appBar: AppBar(title: Text(widget.mosque.name)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: loading
@@ -76,37 +83,52 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Mosque ID: ${widget.osmId}',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  // 📍 DISTANCE
+                  Row(
+                    children: [
+                      const Icon(Icons.place, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Distance: ${_formatDistance(widget.mosque.distanceMeters)}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: 20),
+
                   const Text(
                     'Jamaat Prayer Times',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 10),
+
+                  const SizedBox(height: 12),
+
                   _prayerRow('Fajr'),
                   _prayerRow('Dhuhr'),
                   _prayerRow('Asr'),
                   _prayerRow('Maghrib'),
                   _prayerRow('Isha'),
-                  const SizedBox(height: 20),
-                  if (widget.isAdmin)
+
+                  const SizedBox(height: 24),
+
+                  // 🔐 ADMIN ONLY
+                  if (widget.isAuthorized)
                     Center(
                       child: ElevatedButton(
                         onPressed: () async {
-                          final result = await Navigator.push(
+                          final saved = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => SetPrayerTimeScreen(
-                                osmId: widget.osmId,
-                                mosqueName: widget.mosqueName,
+                                osmId: widget.mosque.osmId,
+                                mosqueName: widget.mosque.name,
                               ),
                             ),
                           );
-                          if (result == true) {
-                            _loadPrayerTimes(); // reload after save
+
+                          if (saved == true) {
+                            _loadPrayerTimes(); // 🔄 AUTO RELOAD
                           }
                         },
                         child: const Text('Set Prayer Time'),
@@ -114,6 +136,16 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
                     ),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _prayerRow(String name) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [Text(name), Text(prayerTimes[name] ?? 'N/A')],
       ),
     );
   }

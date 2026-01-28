@@ -4,8 +4,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/mosque.dart';
 import 'mosque_details_screen.dart';
+
+// ---------------- OSM Mosque Model ----------------
 
 class OSMMosque {
   final String osmId;
@@ -21,9 +25,11 @@ class OSMMosque {
   });
 }
 
+// ---------------- MAP SCREEN ----------------
+
 class MapScreen extends StatefulWidget {
   final bool isAuthorized;
-  const MapScreen({super.key, this.isAuthorized = false});
+  const MapScreen({super.key, required this.isAuthorized});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -54,39 +60,44 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => loading = false);
   }
 
+  // ---------------- LOCATION ----------------
+
   Future<void> _ensureLocationEnabled() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
+    bool enabled = await Geolocator.isLocationServiceEnabled();
+    if (!enabled) {
       await _showLocationDialog();
-      while (!await Geolocator.isLocationServiceEnabled()) {
-        await Future.delayed(const Duration(seconds: 1));
-      }
     }
   }
 
   Future<void> _getUserLocation() async {
     LocationPermission permission = await Geolocator.checkPermission();
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+
     if (permission == LocationPermission.deniedForever) {
       throw Exception('Location permission permanently denied');
     }
 
-    final pos = await Geolocator.getCurrentPosition(
+    final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
-    userLocation = LatLng(pos.latitude, pos.longitude);
+
+    userLocation = LatLng(position.latitude, position.longitude);
   }
 
   Future<void> _showLocationDialog() async {
     if (!mounted) return;
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Text('Enable Location'),
-        content: const Text('Location is required to find nearby mosques.'),
+        content: const Text(
+          'Location is required to find nearby mosques.\n\nPlease enable device location.',
+        ),
         actions: [
           TextButton(
             onPressed: () async {
@@ -100,16 +111,21 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // ---------------- FETCH MOSQUES ----------------
+
   Future<void> _fetchOSMMosques() async {
     if (userLocation == null) return;
 
     final url =
-        'https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="place_of_worship"]["religion"="muslim"](around:2000,${userLocation!.latitude},${userLocation!.longitude});out;';
+        'https://overpass-api.de/api/interpreter?data=[out:json];'
+        'node["amenity"="place_of_worship"]["religion"="muslim"]'
+        '(around:2000,${userLocation!.latitude},${userLocation!.longitude});out;';
 
     final response = await http.get(Uri.parse(url));
     final data = jsonDecode(response.body);
 
     final List<OSMMosque> loaded = [];
+
     for (var e in data['elements']) {
       if (e['tags'] != null && e['tags']['name'] != null) {
         loaded.add(
@@ -126,14 +142,57 @@ class _MapScreenState extends State<MapScreen> {
     osmMosques = loaded;
   }
 
+  // ---------------- MOSQUE WITH DISTANCE ----------------
+
+  Future<Mosque> _buildMosque(OSMMosque osm) async {
+    final distance = Geolocator.distanceBetween(
+      userLocation!.latitude,
+      userLocation!.longitude,
+      osm.lat,
+      osm.lon,
+    );
+
+    final doc = await FirebaseFirestore.instance
+        .collection('mosque')
+        .doc(osm.osmId)
+        .get();
+
+    if (doc.exists) {
+      final data = doc.data()!;
+      return Mosque(
+        osmId: osm.osmId,
+        name: osm.name,
+        latitude: osm.lat,
+        longitude: osm.lon,
+        fajr: data['Fajr'],
+        dhuhr: data['Dhuhr'],
+        asr: data['Asr'],
+        maghrib: data['Maghrib'],
+        isha: data['Isha'],
+        distanceMeters: distance,
+      );
+    }
+
+    return Mosque(
+      osmId: osm.osmId,
+      name: osm.name,
+      latitude: osm.lat,
+      longitude: osm.lon,
+      distanceMeters: distance,
+    );
+  }
+
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
-    if (loading)
+    if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (errorMessage != null)
-      return Scaffold(
-        body: Center(child: Text(errorMessage!, textAlign: TextAlign.center)),
-      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(body: Center(child: Text(errorMessage!)));
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nearby Mosques')),
@@ -162,14 +221,16 @@ class _MapScreenState extends State<MapScreen> {
                   width: 40,
                   height: 40,
                   child: GestureDetector(
-                    onTap: () {
+                    onTap: () async {
+                      final mosque = await _buildMosque(osm);
+                      if (!mounted) return;
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => MosqueDetailsScreen(
-                            osmId: osm.osmId,
-                            mosqueName: osm.name,
-                            isAdmin: widget.isAuthorized,
+                            mosque: mosque,
+                            isAuthorized: widget.isAuthorized,
                           ),
                         ),
                       );
@@ -181,7 +242,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         ],
