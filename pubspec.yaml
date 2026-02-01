@@ -34,3 +34,6 @@ flutter:
 
   assets:
     - assets/icons/mosque_marker.png
+    - assets/icons/set-time.png
+
+    

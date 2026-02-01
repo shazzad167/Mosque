@@ -29,13 +29,13 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
     'Isha': 'N/A',
   };
 
+  bool hasPrayerTimes = false;
+
   @override
   void initState() {
     super.initState();
     _loadPrayerTimes();
   }
-
-  // ---------------- LOAD PRAYER TIMES ----------------
 
   Future<void> _loadPrayerTimes() async {
     setState(() => loading = true);
@@ -45,32 +45,33 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
         .doc(widget.mosque.osmId)
         .get();
 
+    bool foundAny = false;
+
     if (doc.exists) {
       final data = doc.data()!;
-      prayerTimes['Fajr'] = data['Fajr'] ?? 'N/A';
-      prayerTimes['Dhuhr'] = data['Dhuhr'] ?? 'N/A';
-      prayerTimes['Asr'] = data['Asr'] ?? 'N/A';
-      prayerTimes['Maghrib'] = data['Maghrib'] ?? 'N/A';
-      prayerTimes['Isha'] = data['Isha'] ?? 'N/A';
+      for (final key in prayerTimes.keys) {
+        final value = data[key];
+        if (value is String && value.trim().isNotEmpty && value != 'N/A') {
+          prayerTimes[key] = value;
+          foundAny = true;
+        } else {
+          prayerTimes[key] = 'N/A';
+        }
+      }
     }
 
     if (!mounted) return;
-    setState(() => loading = false);
+    setState(() {
+      hasPrayerTimes = foundAny;
+      loading = false;
+    });
   }
-
-  // ---------------- DISTANCE FORMAT ----------------
 
   String _formatDistance(double? meters) {
     if (meters == null) return 'Nearby';
-
-    if (meters < 1000) {
-      return '${meters.toStringAsFixed(0)} m';
-    } else {
-      return '${(meters / 1000).toStringAsFixed(2)} km';
-    }
+    if (meters < 1000) return '${meters.toStringAsFixed(0)} m';
+    return '${(meters / 1000).toStringAsFixed(2)} km';
   }
-
-  // ---------------- UI ----------------
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +84,6 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 📍 DISTANCE
                   Row(
                     children: [
                       const Icon(Icons.place, size: 18),
@@ -94,25 +94,14 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
                   const Text(
                     'Jamaat Prayer Times',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-
                   const SizedBox(height: 12),
-
-                  _prayerRow('Fajr'),
-                  _prayerRow('Dhuhr'),
-                  _prayerRow('Asr'),
-                  _prayerRow('Maghrib'),
-                  _prayerRow('Isha'),
-
+                  ...prayerTimes.keys.map(_prayerRow),
                   const SizedBox(height: 24),
-
-                  // 🔐 ADMIN ONLY
                   if (widget.isAuthorized)
                     Center(
                       child: ElevatedButton(
@@ -126,12 +115,13 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
                               ),
                             ),
                           );
-
-                          if (saved == true) {
-                            _loadPrayerTimes(); // 🔄 AUTO RELOAD
-                          }
+                          if (saved == true) _loadPrayerTimes();
                         },
-                        child: const Text('Set Prayer Time'),
+                        child: Text(
+                          hasPrayerTimes
+                              ? 'Update Prayer Time'
+                              : 'Set Prayer Time',
+                        ),
                       ),
                     ),
                 ],
@@ -145,7 +135,7 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(name), Text(prayerTimes[name] ?? 'N/A')],
+        children: [Text(name), Text(prayerTimes[name]!)],
       ),
     );
   }
