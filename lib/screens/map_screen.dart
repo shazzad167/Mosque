@@ -7,7 +7,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/mosque.dart';
-import 'mosque_details_screen.dart';
+import 'mosque_details_screen_general.dart';
+import 'mosque_details_screen_authorized.dart';
 
 // ---------------- OSM Mosque Model ----------------
 
@@ -225,15 +226,23 @@ class _MapScreenState extends State<MapScreen> {
                       final mosque = await _buildMosque(osm);
                       if (!mounted) return;
 
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MosqueDetailsScreen(
-                            mosque: mosque,
-                            isAuthorized: widget.isAuthorized,
+                      if (widget.isAuthorized) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MosqueDetailsScreenAuthorized(mosque: mosque),
                           ),
-                        ),
-                      );
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MosqueDetailsScreenGeneral(mosque: mosque),
+                          ),
+                        );
+                      }
                     },
                     child: Image.asset(
                       'assets/icons/mosque_marker.png',

@@ -137,7 +137,33 @@ class _SetPrayerTimeScreenState extends State<SetPrayerTimeScreen> {
     Navigator.pop(context, true);
   }
 
-  // ---------------- UI Row ----------------
+  // -------- HELPER: Get prayer row color --------
+  Color _getPrayerRowColor(String prayerName) {
+    if (['Fajr', 'Asr', 'Isha'].contains(prayerName)) {
+      return Colors.blue.shade50;
+    }
+    return Colors.amber.shade50;
+  }
+
+  // -------- HELPER: Get prayer icon --------
+  String _getPrayerIcon(String prayerName) {
+    switch (prayerName) {
+      case 'Fajr':
+        return 'assets/icons/fajr.png';
+      case 'Dhuhr':
+        return 'assets/icons/dhuhr.png';
+      case 'Asr':
+        return 'assets/icons/asr.png';
+      case 'Maghrib':
+        return 'assets/icons/maghrib.png';
+      case 'Isha':
+        return 'assets/icons/isha.png';
+      default:
+        return 'assets/icons/mosque_marker.png';
+    }
+  }
+
+  // -------- PRAYER ROW BUILDER --------
   Widget _prayerRow(String prayer) {
     final time = selectedTimes[prayer];
     final label = time == null
@@ -146,51 +172,244 @@ class _SetPrayerTimeScreenState extends State<SetPrayerTimeScreen> {
               ':${time.minute.toString().padLeft(2, '0')} '
               '${fixedMeridiem[prayer]}';
 
-    return ListTile(
-      title: Text(prayer),
-      subtitle: Text(label),
-      trailing: Image.asset('assets/icons/set-time.png', width: 26, height: 26),
+    final rowColor = _getPrayerRowColor(prayer);
+    final isSelected = time != null;
+
+    return GestureDetector(
       onTap: () => _pickTime(prayer),
+      child: Container(
+        decoration: BoxDecoration(
+          color: rowColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? Colors.orange.shade300 : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            // -------- PRAYER ICON --------
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.orange.shade200
+                    : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Image.asset(
+                _getPrayerIcon(prayer),
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // -------- PRAYER NAME & TIME --------
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    prayer,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected
+                          ? Colors.orange.shade700
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // -------- CLOCK ICON --------
+            Icon(
+              Icons.schedule_rounded,
+              color: isSelected ? Colors.orange.shade600 : Colors.grey.shade400,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // ---------------- Build ----------------
+  // -------- BUILD --------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.mosqueName)),
+      appBar: AppBar(
+        backgroundColor: Colors.green.shade600,
+        elevation: 0,
+        title: Text(widget.mosqueName),
+      ),
       body: Column(
         children: [
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // -------- HEADER CARD --------
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green.shade600, Colors.green.shade400],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.edit_note,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Set Prayer Times',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Configure all five daily prayers',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // -------- PRAYER TIMES TITLE --------
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Jamaat Prayer Times',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+
+                // -------- PRAYER ROWS --------
                 for (final p in prayers) _prayerRow(p),
+
+                // -------- ERROR MESSAGE --------
                 if (errorMessage != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      errorMessage!,
-                      style: const TextStyle(color: Colors.red),
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border.all(color: Colors.red.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red.shade600),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],
             ),
           ),
 
-          /// ✅ FIXED: SafeArea prevents nav-bar overlap
+          // -------- SAVE BUTTON --------
           SafeArea(
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: SizedBox(
                 width: double.infinity,
-                height: 44,
-                child: ElevatedButton(
+                height: 48,
+                child: ElevatedButton.icon(
                   onPressed: saving ? null : _savePrayerTimes,
-                  child: saving
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Save'),
+                  icon: saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.save_rounded),
+                  label: Text(
+                    saving ? 'Saving...' : 'Save Prayer Times',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    disabledBackgroundColor: Colors.grey.shade400,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -2,23 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/mosque.dart';
-import 'set_prayer_time_screen.dart';
 
-class MosqueDetailsScreen extends StatefulWidget {
+class MosqueDetailsScreenGeneral extends StatefulWidget {
   final Mosque mosque;
-  final bool isAuthorized;
 
-  const MosqueDetailsScreen({
-    super.key,
-    required this.mosque,
-    required this.isAuthorized,
-  });
+  const MosqueDetailsScreenGeneral({super.key, required this.mosque});
 
   @override
-  State<MosqueDetailsScreen> createState() => _MosqueDetailsScreenState();
+  State<MosqueDetailsScreenGeneral> createState() =>
+      _MosqueDetailsScreenGeneralState();
 }
 
-class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
+class _MosqueDetailsScreenGeneralState
+    extends State<MosqueDetailsScreenGeneral> {
   bool loading = true;
 
   final Map<String, String> prayerTimes = {
@@ -88,6 +84,15 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
       default:
         return 'assets/icons/mosque_marker.png';
     }
+  }
+
+  Color _getPrayerRowColor(String prayerName) {
+    // Fajr, Asr, Isha - Light blue
+    if (['Fajr', 'Asr', 'Isha'].contains(prayerName)) {
+      return Colors.blue.shade50;
+    }
+    // Dhuhr, Maghrib - Light amber
+    return Colors.amber.shade50;
   }
 
   @override
@@ -168,61 +173,46 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
                     // -------- PRAYER TIMES TITLE --------
-                    Text(
+                    const Text(
                       'Jamaat Prayer Times',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
+                        color: Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                    // -------- PRAYER TIMES GRID --------
-                    ...prayerTimes.keys.map(_prayerCard),
-                    const SizedBox(height: 24),
+                    // -------- PRAYER TIMES LIST --------
+                    ...prayerTimes.keys.map(_prayerRow),
+                    const SizedBox(height: 20),
 
-                    // -------- UPDATE/SET PRAYER TIME BUTTON --------
-                    if (widget.isAuthorized)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 80),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final saved = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SetPrayerTimeScreen(
-                                    osmId: widget.mosque.osmId,
-                                    mosqueName: widget.mosque.name,
-                                  ),
-                                ),
-                              );
-                              if (saved == true) _loadPrayerTimes();
-                            },
-                            icon: Image.asset(
-                              'assets/icons/set-time.png',
-                              width: 20,
-                              height: 20,
-                              color: Colors.white,
+                    // -------- NAVIGATE ME BUTTON --------
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // TODO: Implement navigation feature later
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Navigation feature coming soon!'),
                             ),
-                            label: Text(
-                              hasPrayerTimes
-                                  ? 'Update Prayer Time'
-                                  : 'Set Prayer Time',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade600,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                          ),
+                          );
+                        },
+                        icon: const Icon(Icons.navigation_rounded),
+                        label: const Text(
+                          'Navigate Me',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -230,98 +220,67 @@ class _MosqueDetailsScreenState extends State<MosqueDetailsScreen> {
     );
   }
 
-  Widget _prayerCard(String name) {
+  Widget _prayerRow(String name) {
     final time = prayerTimes[name]!;
     final isAvailable = time != 'N/A';
+    final rowColor = _getPrayerRowColor(name);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isAvailable ? Colors.orange.shade300 : Colors.grey.shade300,
-            width: 2,
+    return Container(
+      decoration: BoxDecoration(
+        color: rowColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isAvailable ? Colors.orange.shade300 : Colors.grey.shade300,
+          width: 1.5,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // -------- PRAYER ICON --------
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isAvailable
+                  ? Colors.orange.shade200
+                  : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Image.asset(
+              _getPrayerIcon(name),
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          children: [
-            // -------- PRAYER ICON --------
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isAvailable
-                    ? Colors.orange.shade100
-                    : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.all(4),
-              child: Image.asset(
-                _getPrayerIcon(name),
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 14),
+          const SizedBox(width: 12),
 
-            // -------- PRAYER NAME & TIME --------
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    time,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isAvailable ? Colors.orange.shade700 : Colors.grey,
-                    ),
-                  ),
-                ],
+          // -------- PRAYER NAME --------
+          Expanded(
+            flex: 2,
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
               ),
             ),
+          ),
 
-            // -------- STATUS INDICATOR --------
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isAvailable
-                    ? Colors.orange.shade600
-                    : Colors.grey.shade400,
-                boxShadow: isAvailable
-                    ? [
-                        BoxShadow(
-                          color: Colors.orange.withOpacity(0.5),
-                          blurRadius: 4,
-                        ),
-                      ]
-                    : [],
-              ),
+          // -------- PRAYER TIME --------
+          Text(
+            time,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isAvailable ? Colors.orange.shade700 : Colors.grey,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
