@@ -36,31 +36,42 @@ class _MosqueDetailsScreenGeneralState
   Future<void> _loadPrayerTimes() async {
     setState(() => loading = true);
 
-    final doc = await FirebaseFirestore.instance
-        .collection('mosque')
-        .doc(widget.mosque.osmId)
-        .get();
+    try {
+      // Attempt to find this mosque in Firestore
+      final doc = await FirebaseFirestore.instance
+          .collection('mosque')
+          .doc(widget.mosque.id)
+          .get();
 
-    bool foundAny = false;
+      bool foundAny = false;
 
-    if (doc.exists) {
-      final data = doc.data()!;
-      for (final key in prayerTimes.keys) {
-        final value = data[key];
-        if (value is String && value.trim().isNotEmpty && value != 'N/A') {
-          prayerTimes[key] = value;
-          foundAny = true;
-        } else {
-          prayerTimes[key] = 'N/A';
+      // Only parse data if the document actually exists in YOUR database
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        for (final key in prayerTimes.keys) {
+          final value = data[key];
+          if (value is String && value.trim().isNotEmpty && value != 'N/A') {
+            prayerTimes[key] = value;
+            foundAny = true;
+          } else {
+            prayerTimes[key] = 'N/A';
+          }
         }
       }
-    }
+      // If doc doesn't exist (e.g. it's a Google Place result),
+      // prayerTimes remains default 'N/A' which is correct behavior.
 
-    if (!mounted) return;
-    setState(() {
-      hasPrayerTimes = foundAny;
-      loading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        hasPrayerTimes = foundAny;
+        loading = false;
+      });
+    } catch (e) {
+      // If error occurs (e.g. invalid ID format), stop loading
+      debugPrint("Error loading details: $e");
+      if (!mounted) return;
+      setState(() => loading = false);
+    }
   }
 
   String _formatDistance(double? meters) {
@@ -87,11 +98,9 @@ class _MosqueDetailsScreenGeneralState
   }
 
   Color _getPrayerRowColor(String prayerName) {
-    // Fajr, Asr, Isha - Light blue
     if (['Fajr', 'Asr', 'Isha'].contains(prayerName)) {
       return Colors.blue.shade50;
     }
-    // Dhuhr, Maghrib - Light amber
     return Colors.amber.shade50;
   }
 
@@ -195,7 +204,6 @@ class _MosqueDetailsScreenGeneralState
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // TODO: Implement navigation feature later
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Navigation feature coming soon!'),
@@ -238,7 +246,6 @@ class _MosqueDetailsScreenGeneralState
       margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          // -------- PRAYER ICON --------
           Container(
             width: 40,
             height: 40,
@@ -254,11 +261,24 @@ class _MosqueDetailsScreenGeneralState
               width: 32,
               height: 32,
               fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 12),
-
-          // -------- PRAYER NAME --------
           Expanded(
             flex: 2,
             child: Text(
@@ -270,8 +290,6 @@ class _MosqueDetailsScreenGeneralState
               ),
             ),
           ),
-
-          // -------- PRAYER TIME --------
           Text(
             time,
             style: TextStyle(

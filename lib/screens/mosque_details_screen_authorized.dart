@@ -37,9 +37,10 @@ class _MosqueDetailsScreenAuthorizedState
   Future<void> _loadPrayerTimes() async {
     setState(() => loading = true);
 
+    // 🔹 Firestore document ID (OSM completely removed)
     final doc = await FirebaseFirestore.instance
         .collection('mosque')
-        .doc(widget.mosque.osmId)
+        .doc(widget.mosque.id)
         .get();
 
     bool foundAny = false;
@@ -88,11 +89,9 @@ class _MosqueDetailsScreenAuthorizedState
   }
 
   Color _getPrayerRowColor(String prayerName) {
-    // Fajr, Asr, Isha - Light blue
     if (['Fajr', 'Asr', 'Isha'].contains(prayerName)) {
       return Colors.blue.shade50;
     }
-    // Dhuhr, Maghrib - Light amber
     return Colors.amber.shade50;
   }
 
@@ -191,7 +190,7 @@ class _MosqueDetailsScreenAuthorizedState
                     ...prayerTimes.keys.map(_prayerRow),
                     const SizedBox(height: 16),
 
-                    // -------- SET/UPDATE PRAYER TIME BUTTON --------
+                    // -------- SET / UPDATE PRAYER TIME --------
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -200,7 +199,7 @@ class _MosqueDetailsScreenAuthorizedState
                             context,
                             MaterialPageRoute(
                               builder: (_) => SetPrayerTimeScreen(
-                                osmId: widget.mosque.osmId,
+                                mosqueId: widget.mosque.id,
                                 mosqueName: widget.mosque.name,
                               ),
                             ),
@@ -212,6 +211,13 @@ class _MosqueDetailsScreenAuthorizedState
                           width: 20,
                           height: 20,
                           color: Colors.white,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.edit,
+                              size: 20,
+                              color: Colors.white,
+                            );
+                          },
                         ),
                         label: Text(
                           hasPrayerTimes
@@ -250,7 +256,6 @@ class _MosqueDetailsScreenAuthorizedState
       margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          // -------- PRAYER ICON --------
           Container(
             width: 40,
             height: 40,
@@ -266,11 +271,24 @@ class _MosqueDetailsScreenAuthorizedState
               width: 32,
               height: 32,
               fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 12),
-
-          // -------- PRAYER NAME --------
           Expanded(
             flex: 2,
             child: Text(
@@ -282,8 +300,6 @@ class _MosqueDetailsScreenAuthorizedState
               ),
             ),
           ),
-
-          // -------- PRAYER TIME --------
           Text(
             time,
             style: TextStyle(
